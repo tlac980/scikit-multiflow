@@ -19,3 +19,5 @@ The following people have contributed to `scikit-multiflow`'s development and ma
 * Walid GARA
 * Huong LE
 * André CRUZ
+* Moritz HEUSINGER
+* Mert OZER

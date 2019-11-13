@@ -9,7 +9,7 @@ from skmultiflow.core import BaseSKMObject, ClassifierMixin, MetaEstimatorMixin
 from skmultiflow.drift_detection.base_drift_detector import BaseDriftDetector
 from skmultiflow.drift_detection import ADWIN
 from skmultiflow.trees.arf_hoeffding_tree import ARFHoeffdingTree
-from skmultiflow.metrics.measure_collection import ClassificationMeasurements
+from skmultiflow.metrics import ClassificationPerformanceEvaluator
 from skmultiflow.utils import get_dimensions, normalize_values_in_dict, check_random_state, check_weights
 
 
@@ -238,7 +238,7 @@ class AdaptiveRandomForest(BaseSKMObject, ClassifierMixin, MetaEstimatorMixin):
 
     def _partial_fit(self, X, y, classes=None, sample_weight=1.0):
         self.instances_seen += 1
-        
+
         if self.ensemble is None:
             self.init_ensemble(X)
 
@@ -251,7 +251,7 @@ class AdaptiveRandomForest(BaseSKMObject, ClassifierMixin, MetaEstimatorMixin):
                                              classes=classes,
                                              sample_weight=np.asarray([k]),
                                              instances_seen=self.instances_seen)
-    
+
     def predict(self, X):
         """ Predict classes for the passed data.
 
@@ -265,16 +265,13 @@ class AdaptiveRandomForest(BaseSKMObject, ClassifierMixin, MetaEstimatorMixin):
         A numpy.ndarray with all the predictions for the samples in X.
 
         """
-        r, _ = get_dimensions(X)
-        predictions = []
-        for i in range(r):
-            votes = self.get_votes_for_instance(X[i])
-            if votes == {}:
-                # Ensemble is empty, all classes equal, default to zero
-                predictions.append(0)
-            else:
-                predictions.append(max(votes, key=votes.get))
-        return np.asarray(predictions)
+        y_proba = self.predict_proba(X)
+        n_rows = y_proba.shape[0]
+        y_pred = np.zeros(n_rows, dtype=int)
+        for i in range(n_rows):
+            index = np.argmax(y_proba[i])
+            y_pred[i] = index
+        return y_pred
 
     def predict_proba(self, X):
         """ Estimates the probability of each sample in X belonging to each of the class-labels.
@@ -295,20 +292,22 @@ class AdaptiveRandomForest(BaseSKMObject, ClassifierMixin, MetaEstimatorMixin):
             Class probabilities for a sample shall sum to 1 as long as at least one estimators has non-zero predictions.
             If no estimator can predict probabilities, probabilities of 0 are returned.
         """
+        if self.ensemble is None:
+            self.init_ensemble(X)
+
         y_proba_mean = None
         for i in range(self.n_estimators):
-            y_proba = self.ensemble[i].predict_proba(X)
+            y_proba_current = self.ensemble[i].predict_proba(X)
             if y_proba_mean is None:
-                y_proba_mean = y_proba
+                y_proba_mean = y_proba_current
             else:
-                y_proba_mean = y_proba_mean + (y_proba - y_proba_mean) / (i+1)
+                y_proba_mean = y_proba_mean + (y_proba_current - y_proba_mean) / (i + 1)
 
         return normalize(y_proba_mean, norm='l1')
-        
+
     def reset(self):
         """Reset ARF."""
         self.ensemble = None
-        self.max_features = 0
         self.instances_seen = 0
         self._train_weight_seen_by_model = 0.0
         self._random_state = check_random_state(self.random_state)
@@ -319,13 +318,13 @@ class AdaptiveRandomForest(BaseSKMObject, ClassifierMixin, MetaEstimatorMixin):
         combined_votes = {}
 
         for i in range(self.n_estimators):
-            vote = self.ensemble[i].get_votes_for_instance(X)
+            vote = deepcopy(self.ensemble[i].get_votes_for_instance(X))
             if vote != {} and sum(vote.values()) > 0:
-                normalize_values_in_dict(vote)
+                vote = normalize_values_in_dict(vote, inplace=False)
                 if not self.disable_weighted_vote:
-                    performance = self.ensemble[i].evaluator.get_accuracy()\
+                    performance = self.ensemble[i].evaluator.accuracy_score()\
                         if self.performance_metric == 'acc'\
-                        else self.ensemble[i].evaluator.get_kappa()
+                        else self.ensemble[i].evaluator.kappa_score()
                     if performance != 0.0:  # CHECK How to handle negative (kappa) values?
                         for k in vote:
                             vote[k] = vote[k] * performance
@@ -336,7 +335,7 @@ class AdaptiveRandomForest(BaseSKMObject, ClassifierMixin, MetaEstimatorMixin):
                     except KeyError:
                         combined_votes[k] = vote[k]
         return combined_votes
-        
+
     def init_ensemble(self, X):
         self._set_max_features(get_dimensions(X)[1])
 
@@ -429,7 +428,7 @@ class ARFBaseLearner(BaseSKMObject):
         self.classifier = classifier
         self.created_on = instances_seen
         self.is_background_learner = is_background_learner
-        self.evaluator_method = ClassificationMeasurements
+        self.evaluator_method = ClassificationPerformanceEvaluator
 
         # Drift and warning
         self.drift_detection_method = drift_detection_method
@@ -445,7 +444,7 @@ class ARFBaseLearner(BaseSKMObject):
         self.background_learner = None
         self._use_drift_detector = False
         self._use_background_learner = False
-        
+
         self.evaluator = self.evaluator_method()
 
         # Initialize drift and warning detectors

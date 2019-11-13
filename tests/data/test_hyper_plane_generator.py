@@ -4,12 +4,12 @@ from skmultiflow.data.hyper_plane_generator import HyperplaneGenerator
 
 
 def test_hyper_plane_generator(test_path):
-
-    stream = HyperplaneGenerator(random_state=112, n_features=10, n_drift_features=2, mag_change=0.6,
+    n_features = 10
+    n_samples = 10
+    stream = HyperplaneGenerator(random_state=112, n_features=n_features, n_drift_features=2, mag_change=0.6,
                                  noise_percentage=0.28, sigma_percentage=0.1)
     stream.prepare_for_use()
 
-    n_features = 10
     assert stream.n_remaining_samples() == -1
 
     expected_names = []
@@ -46,6 +46,14 @@ def test_hyper_plane_generator(test_path):
     X, y = stream.last_sample()
     assert np.alltrue(X[0] == X_expected[0])
     assert np.alltrue(y[0] == y_expected[0])
+
+    stream.restart()
+    X = np.zeros(shape=(n_samples, n_features))
+    y = np.zeros(shape=(n_samples,)).astype('int')
+    for i in range(n_samples):
+        X[i, :], y[i] = stream.next_sample()
+    assert np.alltrue(X == X_expected)
+    assert np.alltrue(y == y_expected)
 
     stream.restart()
     X, y = stream.next_sample(10)

@@ -46,7 +46,7 @@ class EvaluatePrequential(StreamEvaluator):
     metrics: list, optional (Default: ['accuracy', 'kappa'])
         | The list of metrics to track during the evaluation. Also defines the metrics that will be displayed in plots
           and/or logged into the output file. Valid options are
-        | *Classification*
+        | **Classification**
         | 'accuracy'
         | 'kappa'
         | 'kappa_t'
@@ -56,20 +56,20 @@ class EvaluatePrequential(StreamEvaluator):
         | 'recall'
         | 'f1'
         | 'gmean'
-        | *Multi-target Classification*
+        | **Multi-target Classification**
         | 'hamming_score'
         | 'hamming_loss'
         | 'exact_match'
         | 'j_index'
-        | *Regression*
+        | **Regression**
         | 'mean_square_error'
         | 'mean_absolute_error'
         | 'true_vs_predicted'
-        | *Multi-target Regression*
+        | **Multi-target Regression**
         | 'average_mean_squared_error'
         | 'average_mean_absolute_error'
         | 'average_root_mean_square_error'
-        | *Experimental*
+        | **Experimental**
         | 'running_time'
         | 'model_size'
 
@@ -117,8 +117,6 @@ class EvaluatePrequential(StreamEvaluator):
     >>>                                 show_plot=True,
     >>>                                 metrics=['accuracy', 'kappa'])
     >>>
-    >>> evaluator.evaluate(stream=stream, model=ht, model_names=['HT'])
-    >>>
     >>> # Run evaluation
     >>> evaluator.evaluate(stream=stream, model=ht, model_names=['HT'])
 
@@ -163,7 +161,7 @@ class EvaluatePrequential(StreamEvaluator):
     >>>                                 show_plot=True,
     >>>                                 metrics=['accuracy'],
     >>>                                 data_points_for_classification=True)
-    >>> evaluator.evaluate(stream=stream, model=ht, model_names=['HT'])
+    >>>
     >>> # Run evaluation
     >>> evaluator.evaluate(stream=stream, model=ht, model_names=['HT'])
 
