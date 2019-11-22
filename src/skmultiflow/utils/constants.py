@@ -19,6 +19,7 @@ F1_SCORE = 'f1'
 GMEAN = 'gmean'
 PRECISION = 'precision'
 RECALL = 'recall'
+RAM_HOURS = 'ram_hours'
 
 PLOT_TYPES = [ACCURACY,
               KAPPA,
@@ -38,10 +39,11 @@ PLOT_TYPES = [ACCURACY,
               RECALL,
               F1_SCORE,
               GMEAN,
-
               DATA_POINTS,
               RUNNING_TIME,
-              MODEL_SIZE]
+              MODEL_SIZE,
+              RAM_HOURS]
+
 CLASSIFICATION_METRICS = [ACCURACY,
                           KAPPA,
                           KAPPA_T,
@@ -54,23 +56,27 @@ CLASSIFICATION_METRICS = [ACCURACY,
 
                           DATA_POINTS,
                           RUNNING_TIME,
-                          MODEL_SIZE]
+                          MODEL_SIZE,
+                          RAM_HOURS]
 REGRESSION_METRICS = [MSE,
                       MAE,
                       TRUE_VS_PREDICTED,
                       RUNNING_TIME,
-                      MODEL_SIZE]
+                      MODEL_SIZE,
+                      RAM_HOURS]
 MULTI_TARGET_CLASSIFICATION_METRICS = [HAMMING_SCORE,
                                        HAMMING_LOSS,
                                        EXACT_MATCH,
                                        J_INDEX,
                                        RUNNING_TIME,
-                                       MODEL_SIZE]
+                                       MODEL_SIZE,
+                                       RAM_HOURS]
 MULTI_TARGET_REGRESSION_METRICS = [AMSE,
                                    AMAE,
                                    ARMSE,
                                    RUNNING_TIME,
-                                   MODEL_SIZE]
+                                   MODEL_SIZE,
+                                   RAM_HOURS]
 CLASSIFICATION = 'classification'
 REGRESSION = 'regression'
 MULTI_OUTPUT = 'multi_output'

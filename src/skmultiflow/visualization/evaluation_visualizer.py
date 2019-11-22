@@ -10,45 +10,45 @@ from skmultiflow.utils import FastBuffer, constants
 class EvaluationVisualizer(BaseListener):
     """ This class is responsible for maintaining and updating the plot modules
     for the evaluators in scikit-multiflow.
-    
+
     It uses `matplotlib.pyplot` modules to create the main plot, which
-    depending on the options passed to it as parameter, will create multiple 
+    depending on the options passed to it as parameter, will create multiple
     subplots to better display all requested metrics.
-    
+
     The plots are dynamically updated depending on frame counts amd time elapsed
     since last update. This strategy account for fast and slow methods.
-    
+
     Line objects are used to describe performance measurements.
-    
+
     It supports multiple models per subplot as a way of comparing the performance
     of different learning algorithms.
-    
+
     Parameters
     ----------
     n_wait: int
         The number of samples tracked in the sliding window for current performance.
-    
+
     dataset_name: string (Default: 'Unnamed graph')
         The title of the plot. Algorithmically it's not important.
-    
+
     metrics: list
         A list containing all the metrics to plot.
-    
+
     n_models: int
         The number of models to compare.
-    
+
     Raises
     ------
-    ValueError: A ValueError can be raised for a series of reasons. If no plots 
-    are passed as parameter to the constructor a ValueError is raised. If the wrong 
+    ValueError: A ValueError can be raised for a series of reasons. If no plots
+    are passed as parameter to the constructor a ValueError is raised. If the wrong
     type of parameter is passed to on_new_train_step the same error is raised.
-    
+
     Notes
     -----
     Using more than 3 plot types at a time is not recommended, as it can
     significantly slow down the evaluation time. For the same reason comparing
     more than 3 learners at a time is not recommended.
-    
+
     """
 
     def __init__(self, task_type, n_wait, dataset_name, metrics, n_models, model_names, data_dict):
@@ -106,10 +106,10 @@ class EvaluationVisualizer(BaseListener):
 
     def on_new_train_step(self, sample_id, data_buffer):
         """ This is the listener main function, which gives it the ability to
-        'listen' for the caller. Whenever the EvaluationVisualiser should 
+        'listen' for the caller. Whenever the EvaluationVisualiser should
         be aware of some new data, the caller will invoke this function,
         passing the new data buffer.
-        
+
         Parameters
         ----------
         sample_id: int
@@ -117,11 +117,11 @@ class EvaluationVisualizer(BaseListener):
 
         data_buffer: EvaluationDataBuffer
             A buffer containing evaluation data for a single training / visualization step.
-            
+
         Raises
         ------
         ValueError: If an exception is raised during the draw operation.
-         
+
         """
 
         try:
@@ -147,14 +147,14 @@ class EvaluationVisualizer(BaseListener):
     def __configure(self):
         """  This function will verify which subplots should be create. Initializing
         all relevant objects to keep track of the plotting points.
-        
-        Basic structures needed to keep track of plot values (for each subplot) 
+
+        Basic structures needed to keep track of plot values (for each subplot)
         are: lists of values and matplot line objects.
-        
-        The __configure function will also initialize each subplot with the 
+
+        The __configure function will also initialize each subplot with the
         correct name and setup the axis.
-        
-        The subplot size will self adjust to each screen size, so that data can 
+
+        The subplot size will self adjust to each screen size, so that data can
         be better viewed in different contexts.
 
         """
@@ -180,7 +180,7 @@ class EvaluationVisualizer(BaseListener):
         plt.ion()
         self.fig = plt.figure(figsize=(9, 5))
         self.fig.suptitle(self.dataset_name)
-        plot_metrics = [m for m in self.metrics if m not in [constants.RUNNING_TIME, constants.MODEL_SIZE]]
+        plot_metrics = [m for m in self.metrics if m not in [constants.RUNNING_TIME, constants.MODEL_SIZE, constants.RAM_HOURS]]
         base = 11 + len(plot_metrics) * 100  # 3-digit integer describing the position of the subplot.
         self.fig.canvas.set_window_title('scikit-multiflow')
 
@@ -189,7 +189,7 @@ class EvaluationVisualizer(BaseListener):
             data_ids = self.data_dict[metric_id]
             self._plot_trackers[metric_id] = PlotDataTracker(data_ids)
             plot_tracker = self._plot_trackers[metric_id]
-            if metric_id not in [constants.RUNNING_TIME, constants.MODEL_SIZE]:
+            if metric_id not in [constants.RUNNING_TIME, constants.MODEL_SIZE, constants.RAM_HOURS]:
                 plot_tracker.sub_plot_obj = self.fig.add_subplot(base)
             base += 1
             if metric_id == constants.TRUE_VS_PREDICTED:
@@ -251,6 +251,12 @@ class EvaluationVisualizer(BaseListener):
                 plot_tracker.data['model_size'] = [0.0 for _ in range(self.n_models)]
 
                 memory_time['model_size'] = plot_tracker.data['model_size']
+
+            elif metric_id == constants.RAM_HOURS:
+                plot_tracker.data['ram_hours'] = [0.0 for _ in range(self.n_models)]
+
+                memory_time['ram_hours'] = plot_tracker.data['ram_hours']
+
             else:
                 # Default case, 'mean' and 'current' performance
                 handle = []
@@ -333,7 +339,8 @@ class EvaluationVisualizer(BaseListener):
         if constants.DATA_POINTS not in self.metrics:
             plt.xlabel('Samples')
         if constants.RUNNING_TIME in self.metrics or \
-                constants.MODEL_SIZE in self.metrics:
+                constants.MODEL_SIZE in self.metrics or \
+                constants.RAM_HOURS in self.metrics :
             self._update_time_and_memory_annotations(memory_time)
 
         self.fig.subplots_adjust(hspace=.5)
@@ -349,7 +356,7 @@ class EvaluationVisualizer(BaseListener):
         memory_time = {}
         for metric_id, data_ids in data_buffer.data_dict.items():
             # update_xy_limits = True
-            update_xy_limits = metric_id not in [constants.RUNNING_TIME, constants.MODEL_SIZE]
+            update_xy_limits = metric_id not in [constants.RUNNING_TIME, constants.MODEL_SIZE, constants.RAM_HOURS]
             y_min = 0.0
             y_max = 1.0
             pad = 0.1  # Default padding to set above and bellow plots
@@ -419,6 +426,13 @@ class EvaluationVisualizer(BaseListener):
                     data_id='model_size'
                 )
                 memory_time['model_size'] = plot_tracker.data['model_size']
+
+            elif metric_id == constants.RAM_HOURS:
+                plot_tracker.data['ram_hours'] = data_buffer.get_data(
+                    metric_id=metric_id,
+                    data_id='ram_hours'
+                )
+                memory_time['ram_hours'] = plot_tracker.data['ram_hours']
             else:
                 # Default case, 'mean' and 'current' performance
                 for data_id in data_ids:
@@ -446,7 +460,8 @@ class EvaluationVisualizer(BaseListener):
                 plot_tracker.sub_plot_obj.set_ylim((y_min-pad, y_max+pad))
                 plot_tracker.sub_plot_obj.set_xlim(0, self._sample_ids[-1])
         if constants.RUNNING_TIME in self.metrics or \
-                constants.MODEL_SIZE in self.metrics:
+                constants.MODEL_SIZE in self.metrics or \
+                constants.RAM_HOURS in self.metrics :
             self._update_time_and_memory_annotations(memory_time)
 
     def _clear_annotations(self):
@@ -477,6 +492,8 @@ class EvaluationVisualizer(BaseListener):
                       format('Train (s)', 'Predict (s)', 'Total (s)')
         if constants.MODEL_SIZE in self.metrics:
             text_header += ' | {: ^16}'.format('Mem (kB)')
+        if constants.RAM_HOURS in self.metrics:
+            text_header += ' | {: ^16}'.format('Mem (GB*h)')
 
         last_plot = self.fig.get_axes()[-1]
         x0, y0, width, height = last_plot.get_position().bounds
@@ -492,6 +509,11 @@ class EvaluationVisualizer(BaseListener):
             if constants.MODEL_SIZE in self.metrics:
                 text_info += '{: ^19.2f}'.format(memory_time['model_size'][i])
             shift_y = .03 * (i + 1)  # y axis shift for plot annotations
+            self._text_annotations.append(self.fig.text(s=text_info, x=annotation_xy[0], y=annotation_xy[1] - shift_y))
+
+            if constants.RAM_HOURS in self.metrics:
+                text_info += '{: ^19.2f}'.format(memory_time['ram_hours'][i])
+            shift_y = .03 * (i + 2)  # y axis shift for plot annotations
             self._text_annotations.append(self.fig.text(s=text_info, x=annotation_xy[0], y=annotation_xy[1] - shift_y))
 
     @staticmethod

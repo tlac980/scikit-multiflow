@@ -1,9 +1,11 @@
 import numpy as np
 
 from skmultiflow.utils.data_structures import FastBuffer, FastComplexBuffer, ConfusionMatrix, MOLConfusionMatrix
-from skmultiflow.utils import check_weights
+from skmultiflow.utils import check_weights, calculate_object_size
 
 from timeit import default_timer as timer
+
+import time
 
 import warnings
 
@@ -1569,6 +1571,65 @@ class RunningTimeMeasurements(object):
                 str(self.get_current_training_time()) + \
                 ' - testing_time: ' + \
                 str(self.get_current_testing_time())
+
+
+class Running_RAM_H_Measurements(object):
+    """ Class used to compute the RAM_hour consumption for each evaluated prediction
+        model.
+
+        RAM_hour metric is used as an evaluation measure of the resources used by streaming algorithms.
+        Every GB of RAM deployed for 1 hour equals one RAM-Hour.
+        [A. Bifet, G. Holmes, B. Pfahringer, and E. Frank. Fast perceptron decision tree learning from evolving data streams. In PAKDD, 2010]
+
+        Besides the properties getters, the available compute time methods
+        must be used as follows:
+        - Pretrain
+        - compute_evaluate_start_time
+        - Test
+        - Train
+        - compute_RAM_H_increment(model)
+
+    """
+
+    def __init__(self, mod):
+        super().__init__()
+        self._RAM_H = 0
+        self._time_increment = 0
+        self._evaluate_start_time = None
+        self._last_evaluate_start_time = None
+        self._evaluate_time = None
+        self._RAM_H_increment = None
+
+        self._modelToEval = mod
+
+    def reset(self):
+        self._RAM_H = 0
+        self._time_increment = 0
+        self._evaluate_start_time = None
+        self._last_evaluate_start_time = None
+        self._evaluate_time = None
+        self._RAM_H_increment = None
+
+    def compute_evaluate_start_time(self):
+        """ Initiates the start time for the RAMHours measurement.
+        """
+        self._evaluate_start_time = time.thread_time_ns()
+        self._last_evaluate_start_time = self._evaluate_start_time
+
+    def compute_RAM_H_increment(self):
+        """ Compute the increment of RAMHours for the model 'mod'.
+        """
+
+        self._evaluate_time = time.thread_time_ns()
+        self._time_increment = (self._evaluate_time-self._last_evaluate_start_time)/1000000000 # Nano to Seconds
+        self._RAM_H_increment = calculate_object_size(self._modelToEval, 'byte') / (1024 * 1024 * 1024) # GB
+
+        self._RAM_H_increment *= (self._time_increment / 3600) #Hours
+        self._RAM_H += self._RAM_H_increment
+        self._last_evaluate_start_time = self._evaluate_time
+
+    def get_current_RAM_H(self):
+        return self._RAM_H
 
 
 def hamming_score(true_labels, predicts):

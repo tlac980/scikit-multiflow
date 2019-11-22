@@ -11,7 +11,7 @@ from skmultiflow.metrics import ClassificationPerformanceEvaluator, WindowClassi
     MultiLabelClassificationPerformanceEvaluator, WindowMultiLabelClassificationPerformanceEvaluator,\
     RegressionMeasurements, WindowRegressionMeasurements,\
     MultiTargetRegressionMeasurements, WindowMultiTargetRegressionMeasurements,\
-    RunningTimeMeasurements
+    RunningTimeMeasurements, Running_RAM_H_Measurements
 import skmultiflow.utils.constants as constants
 from skmultiflow.utils import calculate_object_size
 
@@ -181,6 +181,7 @@ class StreamEvaluator(BaseSKMObject, metaclass=ABCMeta):
 
         for plot in self.metrics:
             if plot not in constants.PLOT_TYPES:
+                print(constants.PLOT_TYPES)
                 raise ValueError('Plot type not supported: {}.'.format(plot))
 
         # Check consistency between output type and metrics and between metrics
@@ -269,10 +270,12 @@ class StreamEvaluator(BaseSKMObject, metaclass=ABCMeta):
                 self.current_eval_measurements.append(WindowMultiTargetRegressionMeasurements(
                     window_size=self.n_sliding))
 
-        # Running time
+        # Running time & RAM_H
         self.running_time_measurements = []
+        self.running_RAM_H_measurements = []
         for i in range(self.n_models):
             self.running_time_measurements.append(RunningTimeMeasurements())
+            self.running_RAM_H_measurements.append(Running_RAM_H_Measurements(self.model[i]))
 
         # Evaluation data buffer
         self._data_dict = {}
@@ -286,6 +289,8 @@ class StreamEvaluator(BaseSKMObject, metaclass=ABCMeta):
                 data_ids = ['training_time', 'testing_time', 'total_running_time']
             elif metric == constants.MODEL_SIZE:
                 data_ids = ['model_size']
+            elif metric == constants.RAM_HOURS:
+                data_ids = ['ram_hours']
             self._data_dict[metric] = data_ids
 
         self._data_buffer = EvaluationDataBuffer(data_dict=self._data_dict)
@@ -432,6 +437,11 @@ class StreamEvaluator(BaseSKMObject, metaclass=ABCMeta):
                 for i in range(self.n_models):
                     values.append(calculate_object_size(self.model[i], 'kB'))
 
+            elif metric == constants.RAM_HOURS:
+                values = []
+                for i in range(self.n_models):
+                    values.append(self.running_RAM_H_measurements[i].get_current_RAM_H())
+
             else:
                 raise ValueError('Unknown metric {}'.format(metric))
 
@@ -458,6 +468,10 @@ class StreamEvaluator(BaseSKMObject, metaclass=ABCMeta):
             elif metric == constants.MODEL_SIZE:
                 self._data_buffer.update_data(sample_id=sample_id, metric_id=metric, data_id='model_size',
                                               value=values)
+            elif metric == constants.RAM_HOURS:
+                self._data_buffer.update_data(sample_id=sample_id, metric_id=metric, data_id='ram_hours',
+                                              value=values)
+
             else:
                 # Default case, 'mean' and 'current' performance
                 self._data_buffer.update_data(sample_id=sample_id, metric_id=metric, data_id=constants.MEAN,
@@ -519,6 +533,9 @@ class StreamEvaluator(BaseSKMObject, metaclass=ABCMeta):
                     elif metric == constants.MODEL_SIZE:
                         for i in range(self.n_models):
                             header += ',model_size_[{0}]'.format(self.model_names[i])
+                    elif metric == constants.RAM_HOURS:
+                        for i in range(self.n_models):
+                            header += ',ram_hours_[{0}]'.format(self.model_names[i])
                     elif metric == constants.DATA_POINTS:
                         continue
                     else:
@@ -549,6 +566,10 @@ class StreamEvaluator(BaseSKMObject, metaclass=ABCMeta):
                         line += ',{:.6f},{:.6f},{:.6f}'.format(values[0][i], values[1][i], values[2][i])
                 elif metric == constants.MODEL_SIZE:
                     values = self._data_buffer.get_data(metric_id=metric, data_id='model_size')
+                    for i in range(self.n_models):
+                        line += ',{:.6f}'.format(values[i])
+                elif metric == constants.RAM_HOURS:
+                    values = self._data_buffer.get_data(metric_id=metric, data_id='ram_hours')
                     for i in range(self.n_models):
                         line += ',{:.6f}'.format(values[i])
                 elif metric == constants.DATA_POINTS:
@@ -593,9 +614,10 @@ class StreamEvaluator(BaseSKMObject, metaclass=ABCMeta):
 
     def evaluation_summary(self):
         if self._end_time - self._start_time > self.max_time:
-            print('\nTime limit reached ({:.2f}s). Evaluation stopped.'.format(self.max_time))
+            ('\nTime limit reached ({:.2f}s). Evaluation stopped.'.format(self.max_time))
         print('Processed samples: {}'.format(self.global_sample_count))
         print('Mean performance:')
+
         for i in range(self.n_models):
             if constants.ACCURACY in self.metrics:
                 print('{} - Accuracy     : {:.4f}'.format(
@@ -676,6 +698,10 @@ class StreamEvaluator(BaseSKMObject, metaclass=ABCMeta):
                 print('{} - Size (kB)          : {:.4f}'.format(
                     self.model_names[i], self._data_buffer.get_data(metric_id=constants.MODEL_SIZE,
                                                                     data_id='model_size')[i]))
+            if constants.RAM_HOURS in self.metrics:
+                print('{} - ram_hours (GB*h)          : {:.4f}'.format(
+                    self.model_names[i], self._data_buffer.get_data(metric_id=constants.RAM_HOURS,
+                                                                    data_id='ram_hours')[i]))
 
     def get_measurements(self, model_idx=None):
         """ Get measurements from the evaluation.

@@ -303,8 +303,10 @@ class EvaluatePrequential(StreamEvaluator):
 
         update_count = 0
         print('Evaluating...')
+
         while ((self.global_sample_count < actual_max_samples) & (self._end_time - self._start_time < self.max_time)
                & (self.stream.has_more_samples())):
+
             try:
                 X, y = self.stream.next_sample(self.batch_size)
 
@@ -314,9 +316,11 @@ class EvaluatePrequential(StreamEvaluator):
                     for i in range(self.n_models):
                         try:
                             # Testing time
+                            self.running_RAM_H_measurements[i].compute_evaluate_start_time()
                             self.running_time_measurements[i].compute_testing_time_begin()
                             prediction[i].extend(self.model[i].predict(X))
                             self.running_time_measurements[i].compute_testing_time_end()
+                            self.running_RAM_H_measurements[i].compute_RAM_H_increment()
                         except TypeError:
                             raise TypeError("Unexpected prediction value from {}"
                                             .format(type(self.model[i]).__name__))
@@ -334,24 +338,30 @@ class EvaluatePrequential(StreamEvaluator):
                             if self._task_type != constants.REGRESSION and \
                                self._task_type != constants.MULTI_TARGET_REGRESSION:
                                 # Accounts for the moment of training beginning
+                                self.running_RAM_H_measurements[i].compute_evaluate_start_time()
                                 self.running_time_measurements[i].compute_training_time_begin()
                                 self.model[i].partial_fit(X, y, self.stream.target_values)
                                 # Accounts the ending of training
                                 self.running_time_measurements[i].compute_training_time_end()
+                                self.running_RAM_H_measurements[i].compute_RAM_H_increment()
                             else:
+                                self.running_RAM_H_measurements[i].compute_evaluate_start_time()
                                 self.running_time_measurements[i].compute_training_time_begin()
                                 self.model[i].partial_fit(X, y)
                                 self.running_time_measurements[i].compute_training_time_end()
+                                self.running_RAM_H_measurements[i].compute_RAM_H_increment()
 
                             # Update total running time
                             self.running_time_measurements[i].update_time_measurements(self.batch_size)
                         first_run = False
                     else:
                         for i in range(self.n_models):
+                            self.running_RAM_H_measurements[i].compute_evaluate_start_time()
                             self.running_time_measurements[i].compute_training_time_begin()
                             self.model[i].partial_fit(X, y)
                             self.running_time_measurements[i].compute_training_time_end()
                             self.running_time_measurements[i].update_time_measurements(self.batch_size)
+                            self.running_RAM_H_measurements[i].compute_RAM_H_increment()
 
                     if ((self.global_sample_count % self.n_wait) == 0 or
                             (self.global_sample_count >= self.max_samples) or

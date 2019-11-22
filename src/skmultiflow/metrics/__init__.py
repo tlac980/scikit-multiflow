@@ -11,11 +11,13 @@ from .measure_collection import MultiTargetRegressionMeasurements
 from .measure_collection import WindowRegressionMeasurements
 from .measure_collection import WindowMultiTargetRegressionMeasurements
 from .measure_collection import RunningTimeMeasurements
+from .measure_collection import Running_RAM_H_Measurements
 from .measure_collection import ConfusionMatrix
 from .measure_collection import MOLConfusionMatrix
 from .measure_collection import hamming_score
 from .measure_collection import exact_match
 from .measure_collection import j_index
+from .measure_collection import Running_RAM_H_Measurements
 # To be removed in v0.7
 from .measure_collection import ClassificationMeasurements
 from .measure_collection import MultiTargetClassificationMeasurements
